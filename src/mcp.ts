@@ -27,6 +27,7 @@ When you receive a message:
 For DM messages (channel_type="dm"):
 - Respond conversationally, as if chatting directly with the user
 - thread_ts is optional — omit it to send a top-level reply in the DM
+- Do NOT add emoji reactions to DM messages
 
 For channel messages (channel_type="channel"):
 - Always include thread_ts to reply in the correct thread
