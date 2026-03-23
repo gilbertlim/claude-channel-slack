@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "claude-channel-slack": {
-      "command": "~/.bun/bin/bun",
-      "args": ["./src/server.ts"]
+      "command": "/Users/<user>/.bun/bin/bun",
+      "args": ["/path/to/claude-code-slack/src/server.ts"]
     }
   }
 }
