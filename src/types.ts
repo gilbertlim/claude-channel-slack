@@ -1,5 +1,6 @@
 export interface SlackMessageMeta {
   channel: string;
+  channel_type: "dm" | "channel";
   ts: string;
   thread_ts: string;
   user_id: string;
@@ -8,7 +9,7 @@ export interface SlackMessageMeta {
 
 export interface ReplyToolArgs {
   channel: string;
-  thread_ts: string;
+  thread_ts?: string;
   text: string;
 }
 

@@ -9,10 +9,12 @@ import { slackApp } from "./slack.js";
 let botUserId: string | undefined;
 
 slackApp.event("message", async ({ event, context }) => {
-  console.error("[DEBUG] message event received:", event.channel, "ts:", event.ts);
+  const channelType = "channel_type" in event ? (event.channel_type as string) : undefined;
+  const isDM = channelType === "im";
+  console.error("[DEBUG] message event received:", event.channel, "type:", channelType, "ts:", event.ts);
 
-  // Only process messages from the target channel
-  if (!SLACK_CHANNEL_IDS.includes(event.channel)) {
+  // Allow DMs and messages from target channels
+  if (!isDM && !SLACK_CHANNEL_IDS.includes(event.channel)) {
     console.error("[DEBUG] channel filtered out:", event.channel, "allowed:", SLACK_CHANNEL_IDS);
     return;
   }
@@ -111,6 +113,7 @@ slackApp.event("message", async ({ event, context }) => {
         content: text,
         meta: {
           channel: event.channel,
+          channel_type: isDM ? "dm" : "channel",
           ts: event.ts,
           thread_ts: threadTs,
           user_id: userId,

@@ -17,12 +17,19 @@ export const mcp = new Server(
       experimental: { "claude/channel": {} },
       tools: {},
     },
-    instructions: `Messages from a Slack channel arrive as <channel source="claude-channel-slack" channel="C..." ts="..." thread_ts="..." user_id="..." username="...">.
+    instructions: `Messages from Slack arrive as <channel source="claude-channel-slack" channel="..." channel_type="dm|channel" ts="..." thread_ts="..." user_id="..." username="...">.
 
 When you receive a message:
-1. Analyze the content — it may be an alert, error report, or question
+1. Analyze the content — it may be an alert, error report, question, or casual conversation
 2. Provide actionable analysis with possible root causes and remediation
-3. Reply using the reply tool with channel and thread_ts from the tag attributes
+3. Reply using the reply tool with the channel from the tag attributes
+
+For DM messages (channel_type="dm"):
+- Respond conversationally, as if chatting directly with the user
+- thread_ts is optional — omit it to send a top-level reply in the DM
+
+For channel messages (channel_type="channel"):
+- Always include thread_ts to reply in the correct thread
 
 Always reply in Korean (한국어). Keep replies concise.
 
@@ -36,24 +43,24 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "reply",
       description:
-        "Reply to a Slack message thread. Use channel and thread_ts from the incoming channel notification.",
+        "Reply to a Slack message. For channel messages, include thread_ts to reply in thread. For DMs, thread_ts is optional.",
       inputSchema: {
         type: "object" as const,
         properties: {
           channel: {
             type: "string",
-            description: "Slack channel ID (e.g. C0123456789)",
+            description: "Slack channel or DM channel ID",
           },
           thread_ts: {
             type: "string",
-            description: "Thread timestamp to reply in",
+            description: "Thread timestamp to reply in (required for channels, optional for DMs)",
           },
           text: {
             type: "string",
             description: "Reply message text",
           },
         },
-        required: ["channel", "thread_ts", "text"],
+        required: ["channel", "text"],
       },
     },
     {
@@ -144,12 +151,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     await slackApp.client.chat.postMessage({
       token: SLACK_BOT_TOKEN,
       channel,
-      thread_ts,
+      ...(thread_ts ? { thread_ts } : {}),
       text,
     });
 
     return {
-      content: [{ type: "text" as const, text: `Replied in thread ${thread_ts}` }],
+      content: [{ type: "text" as const, text: thread_ts ? `Replied in thread ${thread_ts}` : `Sent message to ${channel}` }],
     };
   }
 

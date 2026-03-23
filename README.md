@@ -17,14 +17,19 @@
 [Slack API](https://api.slack.com/apps)에서 앱을 생성하고 다음 권한을 부여합니다.
 
 **Bot Token Scopes:**
-- `channels:history` - 채널 메시지 읽기 (public)
-- `groups:history` - 채널 메시지 읽기 (private)
+- `channels:history` - public 채널 메시지 읽기
 - `chat:write` - 메시지 작성
-- `reactions:write` - 리액션 추가/제거
 - `files:read` - 파일 다운로드
 - `files:write` - 파일 업로드
-- `reactions:write` - 리액션 추가/제거
+- `groups:history` - private 채널 메시지 읽기
+- `im:history` - DM 메시지 읽기
 - `incoming-webhook` - 웹훅
+- `reactions:write` - 리액션 추가/제거
+
+**Subscribe to Bot Events:**
+- `message.channels` - public 채널 메시지 수신
+- `message.groups` - private 채널 메시지 수신
+- `message.im` - DM 메시지 수신
 
 **App-Level Token:**
 - `connections:write` scope로 App-Level Token 생성 (Socket Mode 사용)

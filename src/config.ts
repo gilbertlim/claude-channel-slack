@@ -5,9 +5,9 @@ export const SLACK_CHANNEL_IDS: string[] = (process.env.APP_HELPER_SLACK_CHANNEL
   .split("|")
   .filter(Boolean);
 
-if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN || !SLACK_CHANNEL_IDS.length) {
+if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN) {
   console.error(
-    "Missing required env vars: APP_HELPER_SLACK_BOT_TOKEN, APP_HELPER_SLACK_APP_TOKEN, APP_HELPER_SLACK_CHANNEL_IDS"
+    "Missing required env vars: APP_HELPER_SLACK_BOT_TOKEN, APP_HELPER_SLACK_APP_TOKEN"
   );
   process.exit(1);
 }
