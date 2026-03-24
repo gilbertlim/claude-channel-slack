@@ -9,6 +9,41 @@ import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
 import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs } from "./types.js";
 
+// --- Helpers ---
+function extractMessageText(msg: any): string {
+  if (msg.text) return msg.text;
+
+  const parts: string[] = [];
+
+  if (msg.blocks) {
+    for (const block of msg.blocks) {
+      if (block.type === "rich_text" && block.elements) {
+        for (const elem of block.elements) {
+          if (elem.elements) {
+            parts.push(elem.elements.map((e: any) => e.text ?? "").join(""));
+          }
+        }
+      } else if (block.type === "section") {
+        if (block.text?.text) parts.push(block.text.text);
+        if (block.fields) {
+          parts.push(block.fields.map((f: any) => f.text ?? "").join(" "));
+        }
+      }
+    }
+  }
+
+  if (parts.length > 0) return parts.join("\n");
+
+  if (msg.attachments) {
+    for (const att of msg.attachments) {
+      const t = att.pretext || att.title || att.text || att.fallback;
+      if (t) parts.push(t);
+    }
+  }
+
+  return parts.join("\n") || "";
+}
+
 // --- MCP Channel Server ---
 export const mcp = new Server(
   { name: "claude-channel-slack", version: "0.1.0" },
@@ -266,14 +301,14 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).reverse().map(async (msg) => {
-        let username = msg.user ?? "unknown";
+        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
         if (msg.user) {
           try {
             const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
             username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
           } catch {}
         }
-        return `[${username}] (${msg.ts}): ${msg.text ?? ""}`;
+        return `[${username}] (${msg.ts}): ${extractMessageText(msg)}`;
       })
     );
 
@@ -295,14 +330,14 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).map(async (msg) => {
-        let username = msg.user ?? "unknown";
+        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
         if (msg.user) {
           try {
             const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
             username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
           } catch {}
         }
-        return `[${username}] (${msg.ts}): ${msg.text ?? ""}`;
+        return `[${username}] (${msg.ts}): ${extractMessageText(msg)}`;
       })
     );
 
