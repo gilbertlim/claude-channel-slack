@@ -11,8 +11,6 @@ import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, Upload
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
-  if (msg.text) return msg.text;
-
   const parts: string[] = [];
 
   if (msg.blocks) {
@@ -28,20 +26,96 @@ function extractMessageText(msg: any): string {
         if (block.fields) {
           parts.push(block.fields.map((f: any) => f.text ?? "").join(" "));
         }
+      } else if (block.type === "header") {
+        if (block.text?.text) parts.push(`*${block.text.text}*`);
+      } else if (block.type === "context" && block.elements) {
+        const contextTexts = block.elements
+          .map((e: any) => e.text ?? "")
+          .filter(Boolean);
+        if (contextTexts.length > 0) parts.push(contextTexts.join(" "));
+      } else if (block.type === "divider") {
+        parts.push("---");
+      } else if (block.type === "image") {
+        const label = block.alt_text || block.title?.text || "[image]";
+        parts.push(label);
+      } else if (block.text?.text) {
+        parts.push(block.text.text);
       }
     }
   }
 
   if (parts.length > 0) return parts.join("\n");
 
+  if (msg.text) return msg.text;
+
   if (msg.attachments) {
     for (const att of msg.attachments) {
-      const t = att.pretext || att.title || att.text || att.fallback;
-      if (t) parts.push(t);
+      const attParts: string[] = [];
+      // Handle blocks inside attachments (e.g., bot_message with attachment blocks)
+      if (att.blocks) {
+        for (const block of att.blocks) {
+          if (block.type === "rich_text" && block.elements) {
+            for (const elem of block.elements) {
+              if (elem.elements) {
+                attParts.push(elem.elements.map((e: any) => e.text ?? "").join(""));
+              }
+            }
+          } else if (block.type === "section") {
+            if (block.text?.text) attParts.push(block.text.text);
+            if (block.fields) {
+              attParts.push(block.fields.map((f: any) => f.text ?? "").join(" "));
+            }
+          } else if (block.type === "header") {
+            if (block.text?.text) attParts.push(`*${block.text.text}*`);
+          } else if (block.type === "context" && block.elements) {
+            const contextTexts = block.elements
+              .map((e: any) => e.text ?? "")
+              .filter(Boolean);
+            if (contextTexts.length > 0) attParts.push(contextTexts.join(" "));
+          } else if (block.type === "divider") {
+            attParts.push("---");
+          } else if (block.type === "image") {
+            const label = block.alt_text || block.title?.text || "[image]";
+            attParts.push(label);
+          } else if (block.text?.text) {
+            attParts.push(block.text.text);
+          }
+        }
+      }
+      if (att.pretext) attParts.push(att.pretext);
+      if (att.author_name) attParts.push(att.author_name);
+      if (att.title && att.title_link) {
+        attParts.push(`<${att.title_link}|${att.title}>`);
+      } else if (att.title) {
+        attParts.push(att.title);
+      }
+      if (att.text) attParts.push(att.text);
+      if (att.fields) {
+        for (const f of att.fields) {
+          if (f.title || f.value) attParts.push(`${f.title ?? ""}: ${f.value ?? ""}`);
+        }
+      }
+      if (att.image_url) attParts.push(`[image: ${att.image_url}]`);
+      if (attParts.length === 0 && att.from_url) attParts.push(att.from_url);
+      if (attParts.length === 0 && att.fallback) attParts.push(att.fallback);
+      if (attParts.length > 0) parts.push(attParts.join("\n"));
     }
   }
 
-  return parts.join("\n") || "";
+  if (parts.length > 0) return parts.join("\n");
+
+  // Handle file-only messages
+  if (msg.files) {
+    const fileDescs = msg.files.map((f: any) => `[file: ${f.name || f.title || f.id}]`);
+    return fileDescs.join(", ");
+  }
+
+  // Show subtype info as fallback
+  if (msg.subtype) return `[${msg.subtype}]`;
+
+  // Debug: show available keys so we can identify unhandled message formats
+  const keys = Object.keys(msg).filter(k => !["type", "ts", "user", "bot_id", "bot_profile", "team"].includes(k));
+  return `[no preview available] (keys: ${keys.join(", ") || "none"})`;
 }
 
 // --- MCP Channel Server ---
@@ -301,7 +375,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).reverse().map(async (msg) => {
-        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
+        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? (msg as any).bot_id ?? "unknown";
         if (msg.user) {
           try {
             const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
@@ -330,7 +404,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).map(async (msg) => {
-        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
+        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? (msg as any).bot_id ?? "unknown";
         if (msg.user) {
           try {
             const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
