@@ -70,6 +70,17 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 
 이 명령어는 `.mcp.json`에 정의된 `claude-channel-slack` MCP 서버(`src/server.ts`)를 로드하고, Claude Code가 Slack 채널 메시지를 수신/응답할 수 있는 상태로 진입합니다.
 
+## MCP 도구
+
+| 도구 | 설명 |
+|------|------|
+| `reply` | Slack 메시지 답장 (채널: 스레드, DM: 톱레벨) |
+| `add_reaction` | 메시지에 이모지 리액션 추가 |
+| `remove_reaction` | 메시지에서 이모지 리액션 제거 |
+| `upload_file` | 로컬 파일을 Slack 스레드에 업로드 |
+| `get_channel_history` | 채널/DM의 최근 메시지 조회 (최대 100개) |
+| `get_thread_replies` | 특정 스레드의 답글 조회 (최대 100개) |
+
 ## 기술 스택
 
 - **런타임:** [Bun](https://bun.sh)

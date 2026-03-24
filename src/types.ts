@@ -32,3 +32,14 @@ export interface UploadFileToolArgs {
   title?: string;
   comment?: string;
 }
+
+export interface GetChannelHistoryToolArgs {
+  channel: string;
+  limit?: number;
+}
+
+export interface GetThreadRepliesToolArgs {
+  channel: string;
+  thread_ts: string;
+  limit?: number;
+}

@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs } from "./types.js";
 
 // --- MCP Channel Server ---
 export const mcp = new Server(
@@ -141,6 +141,48 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["channel", "timestamp", "name"],
       },
     },
+    {
+      name: "get_channel_history",
+      description:
+        "Get recent messages from a Slack channel. Use this to read previous conversation context.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel or DM channel ID",
+          },
+          limit: {
+            type: "number",
+            description: "Number of messages to retrieve (default: 20, max: 100)",
+          },
+        },
+        required: ["channel"],
+      },
+    },
+    {
+      name: "get_thread_replies",
+      description:
+        "Get replies in a Slack thread. Use this to read the full conversation context of a thread.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel or DM channel ID",
+          },
+          thread_ts: {
+            type: "string",
+            description: "Thread root message timestamp",
+          },
+          limit: {
+            type: "number",
+            description: "Number of replies to retrieve (default: 20, max: 100)",
+          },
+        },
+        required: ["channel", "thread_ts"],
+      },
+    },
   ],
 }));
 
@@ -209,6 +251,63 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     return {
       content: [{ type: "text" as const, text: `Removed :${name}: reaction from ${timestamp}` }],
+    };
+  }
+
+  if (req.params.name === "get_channel_history") {
+    const { channel, limit } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
+    const effectiveLimit = Math.min(limit ?? 20, 100);
+
+    const result = await slackApp.client.conversations.history({
+      token: SLACK_BOT_TOKEN,
+      channel,
+      limit: effectiveLimit,
+    });
+
+    const messages = await Promise.all(
+      (result.messages ?? []).reverse().map(async (msg) => {
+        let username = msg.user ?? "unknown";
+        if (msg.user) {
+          try {
+            const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
+            username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
+          } catch {}
+        }
+        return `[${username}] (${msg.ts}): ${msg.text ?? ""}`;
+      })
+    );
+
+    return {
+      content: [{ type: "text" as const, text: messages.length > 0 ? messages.join("\n") : "No messages found." }],
+    };
+  }
+
+  if (req.params.name === "get_thread_replies") {
+    const { channel, thread_ts, limit } = req.params.arguments as unknown as GetThreadRepliesToolArgs;
+    const effectiveLimit = Math.min(limit ?? 20, 100);
+
+    const result = await slackApp.client.conversations.replies({
+      token: SLACK_BOT_TOKEN,
+      channel,
+      ts: thread_ts,
+      limit: effectiveLimit,
+    });
+
+    const messages = await Promise.all(
+      (result.messages ?? []).map(async (msg) => {
+        let username = msg.user ?? "unknown";
+        if (msg.user) {
+          try {
+            const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
+            username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
+          } catch {}
+        }
+        return `[${username}] (${msg.ts}): ${msg.text ?? ""}`;
+      })
+    );
+
+    return {
+      content: [{ type: "text" as const, text: messages.length > 0 ? messages.join("\n") : "No replies found." }],
     };
   }
 
