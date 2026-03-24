@@ -1,7 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
-import { SLACK_BOT_TOKEN, SLACK_CHANNEL_IDS } from "./config.js";
+import { SLACK_BOT_TOKEN, SLACK_CHANNEL_IDS, SLACK_ALLOW_ALL_CHANNELS } from "./config.js";
 import { mcp } from "./mcp.js";
 import { slackApp } from "./slack.js";
 
@@ -14,7 +14,7 @@ slackApp.event("message", async ({ event, context }) => {
   console.error("[DEBUG] message event received:", event.channel, "type:", channelType, "ts:", event.ts);
 
   // Allow DMs and messages from target channels
-  if (!isDM && !SLACK_CHANNEL_IDS.includes(event.channel)) {
+  if (!isDM && !SLACK_ALLOW_ALL_CHANNELS && !SLACK_CHANNEL_IDS.includes(event.channel)) {
     console.error("[DEBUG] channel filtered out:", event.channel, "allowed:", SLACK_CHANNEL_IDS);
     return;
   }
