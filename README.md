@@ -44,12 +44,6 @@ export APP_HELPER_SLACK_BOT_TOKEN=xoxb-your-bot-token
 
 # Slack App-Level Token (xapp-...)
 export APP_HELPER_SLACK_APP_TOKEN=xapp-your-app-token
-
-# Slack Channel IDs to monitor
-export APP_HELPER_SLACK_CHANNEL_IDS=C0123456789|C0123456789
-
-# Application Source
-export APP_HELPER_APP_SRC=$HOME/git-repo
 ```
 
 ### 3. 의존성 설치
