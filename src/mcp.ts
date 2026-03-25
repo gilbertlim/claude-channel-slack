@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -292,6 +292,22 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["channel", "thread_ts"],
       },
     },
+    {
+      name: "list_bot_channels",
+      description:
+        "List Slack channels where the bot is installed (member of).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          types: {
+            type: "string",
+            description:
+              "Comma-separated channel types to include: public_channel, private_channel, im, mpim (default: public_channel,private_channel)",
+          },
+        },
+        required: [],
+      },
+    },
   ],
 }));
 
@@ -417,6 +433,48 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     return {
       content: [{ type: "text" as const, text: messages.length > 0 ? messages.join("\n") : "No replies found." }],
+    };
+  }
+
+  if (req.params.name === "list_bot_channels") {
+    const { types } = (req.params.arguments ?? {}) as unknown as ListBotChannelsToolArgs;
+    const channelTypes = types ?? "public_channel,private_channel";
+
+    const channels: { id: string; name: string; is_private: boolean }[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = await slackApp.client.users.conversations({
+        token: SLACK_BOT_TOKEN,
+        types: channelTypes,
+        limit: 200,
+        ...(cursor ? { cursor } : {}),
+      });
+
+      for (const ch of result.channels ?? []) {
+        channels.push({
+          id: ch.id!,
+          name: ch.name ?? ch.id!,
+          is_private: ch.is_private ?? false,
+        });
+      }
+
+      cursor = result.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+
+    const lines = channels.map(
+      (ch) => `${ch.is_private ? "🔒" : "#"} ${ch.name} (${ch.id})`
+    );
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: lines.length > 0
+            ? `Bot is in ${channels.length} channel(s):\n${lines.join("\n")}`
+            : "Bot is not a member of any channels.",
+        },
+      ],
     };
   }
 

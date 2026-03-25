@@ -21,7 +21,9 @@
 - `chat:write` - 메시지 작성
 - `files:read` - 파일 다운로드
 - `files:write` - 파일 업로드
+- `channels:read` - public 채널 정보 조회
 - `groups:history` - private 채널 메시지 읽기
+- `groups:read` - private 채널 정보 조회
 - `im:history` - DM 메시지 읽기
 - `incoming-webhook` - 웹훅
 - `reactions:write` - 리액션 추가/제거
@@ -74,6 +76,7 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `upload_file` | 로컬 파일을 Slack 스레드에 업로드 |
 | `get_channel_history` | 채널/DM의 최근 메시지 조회 (최대 100개) |
 | `get_thread_replies` | 특정 스레드의 답글 조회 (최대 100개) |
+| `list_bot_channels` | 봇이 참여 중인 채널 목록 조회 |
 
 ## 기술 스택
 

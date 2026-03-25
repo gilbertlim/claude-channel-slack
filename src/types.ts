@@ -43,3 +43,7 @@ export interface GetThreadRepliesToolArgs {
   thread_ts: string;
   limit?: number;
 }
+
+export interface ListBotChannelsToolArgs {
+  types?: string;
+}
