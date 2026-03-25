@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -308,6 +308,21 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: [],
       },
     },
+    {
+      name: "list_channel_members",
+      description:
+        "List all members (users) in a Slack channel with their display names.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel ID (e.g. C0123456789)",
+          },
+        },
+        required: ["channel"],
+      },
+    },
   ],
 }));
 
@@ -473,6 +488,49 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           text: lines.length > 0
             ? `Bot is in ${channels.length} channel(s):\n${lines.join("\n")}`
             : "Bot is not a member of any channels.",
+        },
+      ],
+    };
+  }
+
+  if (req.params.name === "list_channel_members") {
+    const { channel } = req.params.arguments as unknown as ListChannelMembersToolArgs;
+
+    const memberIds: string[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = await slackApp.client.conversations.members({
+        token: SLACK_BOT_TOKEN,
+        channel,
+        limit: 200,
+        ...(cursor ? { cursor } : {}),
+      });
+
+      memberIds.push(...(result.members ?? []));
+      cursor = result.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+
+    const members = await Promise.all(
+      memberIds.map(async (id) => {
+        try {
+          const info = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: id });
+          const name = info.user?.profile?.display_name || info.user?.real_name || id;
+          const isBot = info.user?.is_bot ?? false;
+          return `${isBot ? "[bot] " : ""}${name} (${id})`;
+        } catch {
+          return `${id}`;
+        }
+      })
+    );
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: members.length > 0
+            ? `Channel has ${members.length} member(s):\n${members.join("\n")}`
+            : "No members found.",
         },
       ],
     };

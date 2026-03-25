@@ -47,3 +47,7 @@ export interface GetThreadRepliesToolArgs {
 export interface ListBotChannelsToolArgs {
   types?: string;
 }
+
+export interface ListChannelMembersToolArgs {
+  channel: string;
+}
