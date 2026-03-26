@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -424,6 +424,17 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "list_channel_canvases",
+      description: "List all Canvas documents shared in a Slack channel.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel_id: { type: "string", description: "Slack channel ID (e.g. C0AFW7G5VR8)" },
+        },
+        required: ["channel_id"],
+      },
+    },
+    {
       name: "read_canvas",
       description: "Read a Slack Canvas content by its link URL (e.g. https://workspace.slack.com/docs/F12345...).",
       inputSchema: {
@@ -770,6 +781,31 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           ? `Found ${sections.length} section(s):\n${lines.join("\n")}`
           : "No sections found matching criteria.",
       }],
+    };
+  }
+
+  if (req.params.name === "list_channel_canvases") {
+    const { channel_id } = req.params.arguments as unknown as ListChannelCanvasesToolArgs;
+
+    const result = await slackApp.client.files.list({
+      token: SLACK_BOT_TOKEN,
+      channel: channel_id,
+      types: "quip",
+    });
+
+    const files = (result as any).files ?? [];
+    if (files.length === 0) {
+      return {
+        content: [{ type: "text" as const, text: `No canvases found in channel ${channel_id}.` }],
+      };
+    }
+
+    const list = files
+      .map((f: any) => `- ${f.id} | ${f.title} | ${f.permalink ?? ""}`)
+      .join("\n");
+
+    return {
+      content: [{ type: "text" as const, text: `Canvases in ${channel_id} (${files.length}):\n${list}` }],
     };
   }
 

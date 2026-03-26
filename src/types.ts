@@ -84,6 +84,10 @@ export interface LookupCanvasSectionsToolArgs {
   contains_text?: string;
 }
 
+export interface ListChannelCanvasesToolArgs {
+  channel_id: string;
+}
+
 export interface ReadCanvasToolArgs {
   canvas_link: string;
 }

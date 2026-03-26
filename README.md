@@ -93,6 +93,7 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `create_canvas` | Slack 캔버스 생성 (마크다운 지원) |
 | `edit_canvas` | Slack 캔버스 내용 편집 |
 | `delete_canvas` | Slack 캔버스 삭제 |
+| `list_channel_canvases` | 채널에 공유된 캔버스 목록 조회 |
 | `read_canvas` | 캔버스 링크로 내용 읽기 |
 | `lookup_canvas_sections` | 캔버스 섹션 ID 조회 (편집용) |
 | `create_call` | Slack 통화 등록 (참여 URL 포함) |
