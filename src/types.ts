@@ -11,6 +11,7 @@ export interface ReplyToolArgs {
   channel: string;
   thread_ts?: string;
   text: string;
+  blocks?: any[];
 }
 
 export interface AddReactionToolArgs {

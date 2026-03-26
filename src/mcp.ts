@@ -169,6 +169,11 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "Reply message text",
           },
+          blocks: {
+            type: "array",
+            description: "Slack Block Kit blocks (optional). When provided, text is used as fallback for notifications.",
+            items: { type: "object" },
+          },
         },
         required: ["channel", "text"],
       },
@@ -348,13 +353,14 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
 // --- Tool Handlers ---
 mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "reply") {
-    const { channel, thread_ts, text } = req.params.arguments as unknown as ReplyToolArgs;
+    const { channel, thread_ts, text, blocks } = req.params.arguments as unknown as ReplyToolArgs;
 
     await slackApp.client.chat.postMessage({
       token: SLACK_BOT_TOKEN,
       channel,
       ...(thread_ts ? { thread_ts } : {}),
       text,
+      ...(blocks ? { blocks } : {}),
     });
 
     return {
