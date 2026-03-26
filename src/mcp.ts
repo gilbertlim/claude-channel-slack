@@ -776,14 +776,13 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "read_canvas") {
     const { canvas_link } = req.params.arguments as unknown as ReadCanvasToolArgs;
 
-    // Extract canvas ID from URL (e.g. https://workspace.slack.com/docs/F12345ABC)
-    const match = canvas_link.match(/\/docs\/(F[A-Z0-9]+)/i);
-    if (!match) {
+    // Extract canvas ID (F-prefixed) from the last segment of the URL path
+    const canvas_id = new URL(canvas_link).pathname.split("/").pop();
+    if (!canvas_id?.startsWith("F")) {
       return {
         content: [{ type: "text" as const, text: "Invalid canvas link. Expected format: https://workspace.slack.com/docs/F..." }],
       };
     }
-    const canvas_id = match[1];
 
     const result = await slackApp.client.canvases.sections.lookup({
       token: SLACK_BOT_TOKEN,
