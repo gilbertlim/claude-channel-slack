@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -424,6 +424,17 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "read_canvas",
+      description: "Read a Slack Canvas content by its link URL (e.g. https://workspace.slack.com/docs/F12345...).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          canvas_link: { type: "string", description: "Slack Canvas link URL" },
+        },
+        required: ["canvas_link"],
+      },
+    },
+    {
       name: "create_call",
       description: "Register a call in Slack with a join URL that users can click to join.",
       inputSchema: {
@@ -759,6 +770,40 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           ? `Found ${sections.length} section(s):\n${lines.join("\n")}`
           : "No sections found matching criteria.",
       }],
+    };
+  }
+
+  if (req.params.name === "read_canvas") {
+    const { canvas_link } = req.params.arguments as unknown as ReadCanvasToolArgs;
+
+    // Extract canvas ID from URL (e.g. https://workspace.slack.com/docs/F12345ABC)
+    const match = canvas_link.match(/\/docs\/(F[A-Z0-9]+)/i);
+    if (!match) {
+      return {
+        content: [{ type: "text" as const, text: "Invalid canvas link. Expected format: https://workspace.slack.com/docs/F..." }],
+      };
+    }
+    const canvas_id = match[1];
+
+    const result = await slackApp.client.canvases.sections.lookup({
+      token: SLACK_BOT_TOKEN,
+      canvas_id,
+      criteria: {} as any,
+    });
+
+    const sections = (result as any).sections ?? [];
+    if (sections.length === 0) {
+      return {
+        content: [{ type: "text" as const, text: `Canvas ${canvas_id}: no sections found (empty or no access).` }],
+      };
+    }
+
+    const content = sections
+      .map((s: any) => s.markdown ?? s.text ?? `[section ${s.id}]`)
+      .join("\n");
+
+    return {
+      content: [{ type: "text" as const, text: `Canvas ${canvas_id}:\n\n${content}` }],
     };
   }
 

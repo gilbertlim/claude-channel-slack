@@ -84,6 +84,10 @@ export interface LookupCanvasSectionsToolArgs {
   contains_text?: string;
 }
 
+export interface ReadCanvasToolArgs {
+  canvas_link: string;
+}
+
 // --- Call tool args ---
 export interface CreateCallToolArgs {
   external_unique_id: string;
