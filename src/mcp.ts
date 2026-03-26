@@ -784,25 +784,42 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       };
     }
 
-    const result = await slackApp.client.canvases.sections.lookup({
+    // Get file info to find the team ID for download URL
+    const fileInfo = await slackApp.client.files.info({
       token: SLACK_BOT_TOKEN,
-      canvas_id,
-      criteria: {} as any,
+      file: canvas_id,
     });
 
-    const sections = (result as any).sections ?? [];
-    if (sections.length === 0) {
+    const file = (fileInfo as any).file;
+    if (!file) {
       return {
-        content: [{ type: "text" as const, text: `Canvas ${canvas_id}: no sections found (empty or no access).` }],
+        content: [{ type: "text" as const, text: `Canvas ${canvas_id}: file not found or no access.` }],
       };
     }
 
-    const content = sections
-      .map((s: any) => s.markdown ?? s.text ?? `[section ${s.id}]`)
-      .join("\n");
+    // Download canvas HTML content
+    const teamId = file.user_team ?? new URL(canvas_link).pathname.split("/")[2];
+    const downloadUrl = `https://files.slack.com/files-pri/${teamId}-${canvas_id}/canvas`;
+    const res = await fetch(downloadUrl, {
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
+    });
+    const html = await res.text();
+
+    // Strip HTML tags to plain text
+    const content = html
+      .replace(/<p class='embedded-file'>[^<]*<\/p>/g, "")
+      .replace(/<img[^>]*alt="([^"]*)"[^>]*>/g, "$1")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
     return {
-      content: [{ type: "text" as const, text: `Canvas ${canvas_id}:\n\n${content}` }],
+      content: [{ type: "text" as const, text: `Canvas "${file.title}" (${canvas_id}):\n\n${content}` }],
     };
   }
 
