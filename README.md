@@ -9,6 +9,8 @@
 - MCP(Model Context Protocol) 서버로 동작하여 Claude Code에 메시지를 전달
 - Claude Code가 메시지를 분석하고 MCP 도구를 통해 Slack에 응답
 - 에러 알림(Grafana 웹훅 등) 수신 시 컨텍스트 기반 분석 수행
+- Slack Canvas 생성/편집/삭제 및 섹션 조회
+- Slack Calls 등록/종료/정보 조회
 
 ## 사전 준비
 
@@ -30,6 +32,12 @@
 - `users:read` - 사용자 정보 조회
 - `channels:write:invites` - public 채널에 사용자 초대
 - `groups:write:invites` - private 채널에 사용자 초대
+- `canvases:read` - 캔버스 콘텐츠 읽기
+- `canvases:write` - 캔버스 생성/편집/삭제
+- `calls:read` - 통화 정보 조회
+- `calls:write` - 통화 시작 및 관리
+- `channels:join` - public 채널 자동 참여
+- `channels:manage` - public 채널 관리 및 생성
 
 **Subscribe to Bot Events:**
 - `message.channels` - public 채널 메시지 수신
@@ -82,6 +90,13 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `list_bot_channels` | 봇이 참여 중인 채널 목록 조회 |
 | `list_channel_members` | 특정 채널의 멤버 목록 조회 (이름, 봇 여부 포함) |
 | `invite_to_channel` | 사용자를 특정 채널에 초대 |
+| `create_canvas` | Slack 캔버스 생성 (마크다운 지원) |
+| `edit_canvas` | Slack 캔버스 내용 편집 |
+| `delete_canvas` | Slack 캔버스 삭제 |
+| `lookup_canvas_sections` | 캔버스 섹션 ID 조회 (편집용) |
+| `create_call` | Slack 통화 등록 (참여 URL 포함) |
+| `end_call` | Slack 통화 종료 |
+| `get_call_info` | Slack 통화 정보 조회 |
 
 ## 기술 스택
 

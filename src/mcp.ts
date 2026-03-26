@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -347,6 +347,119 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["channel", "users"],
       },
     },
+    {
+      name: "create_canvas",
+      description: "Create a new Slack Canvas with optional markdown content. Can be posted to a channel.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          title: { type: "string", description: "Canvas title" },
+          markdown: { type: "string", description: "Initial content in markdown format" },
+          channel_id: { type: "string", description: "Channel ID to share the canvas in" },
+        },
+        required: [],
+      },
+    },
+    {
+      name: "edit_canvas",
+      description: "Edit a Slack Canvas. Use lookup_canvas_sections first to find section IDs for targeted edits.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          canvas_id: { type: "string", description: "Canvas ID to edit" },
+          changes: {
+            type: "array",
+            description: "Array of changes to apply",
+            items: {
+              type: "object",
+              properties: {
+                operation: {
+                  type: "string",
+                  description: "insert_at_start | insert_at_end | insert_before | insert_after | replace | delete",
+                },
+                section_id: { type: "string", description: "Target section ID (from lookup_canvas_sections)" },
+                document_content: {
+                  type: "object",
+                  description: "Content: { type: 'markdown', markdown: '...' }",
+                  properties: {
+                    type: { type: "string" },
+                    markdown: { type: "string" },
+                  },
+                  required: ["type", "markdown"],
+                },
+              },
+              required: ["operation"],
+            },
+          },
+        },
+        required: ["canvas_id", "changes"],
+      },
+    },
+    {
+      name: "delete_canvas",
+      description: "Delete a Slack Canvas permanently.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          canvas_id: { type: "string", description: "Canvas ID to delete" },
+        },
+        required: ["canvas_id"],
+      },
+    },
+    {
+      name: "lookup_canvas_sections",
+      description: "Look up sections in a Slack Canvas to find section IDs for editing.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          canvas_id: { type: "string", description: "Canvas ID" },
+          section_types: {
+            type: "array",
+            items: { type: "string" },
+            description: "Filter by section types: any_header, h1, h2, h3",
+          },
+          contains_text: { type: "string", description: "Filter sections containing this text" },
+        },
+        required: ["canvas_id"],
+      },
+    },
+    {
+      name: "create_call",
+      description: "Register a call in Slack with a join URL that users can click to join.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          external_unique_id: { type: "string", description: "Unique ID for the call from the external provider" },
+          join_url: { type: "string", description: "URL to join the call" },
+          title: { type: "string", description: "Display title for the call" },
+          date_start: { type: "number", description: "Unix timestamp for call start time" },
+        },
+        required: ["external_unique_id", "join_url"],
+      },
+    },
+    {
+      name: "end_call",
+      description: "Mark a Slack call as ended.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string", description: "Slack call ID (returned from create_call)" },
+          duration: { type: "number", description: "Call duration in seconds" },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "get_call_info",
+      description: "Get information about a Slack call.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string", description: "Slack call ID" },
+        },
+        required: ["id"],
+      },
+    },
   ],
 }));
 
@@ -577,6 +690,124 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           text: `Invited user(s) to channel ${result.channel?.name ?? channel}.`,
         },
       ],
+    };
+  }
+
+  if (req.params.name === "create_canvas") {
+    const { title, markdown, channel_id } = req.params.arguments as unknown as CreateCanvasToolArgs;
+
+    const result = await slackApp.client.canvases.create({
+      token: SLACK_BOT_TOKEN,
+      ...(title ? { title } : {}),
+      ...(markdown ? { document_content: { type: "markdown" as const, markdown } } : {}),
+      ...(channel_id ? { channel_id } : {}),
+    });
+
+    const canvasId = (result as any).canvas_id;
+    return {
+      content: [{ type: "text" as const, text: `Created canvas${title ? ` "${title}"` : ""} (ID: ${canvasId})` }],
+    };
+  }
+
+  if (req.params.name === "edit_canvas") {
+    const { canvas_id, changes } = req.params.arguments as unknown as EditCanvasToolArgs;
+
+    await slackApp.client.canvases.edit({
+      token: SLACK_BOT_TOKEN,
+      canvas_id,
+      changes: changes as any,
+    });
+
+    return {
+      content: [{ type: "text" as const, text: `Edited canvas ${canvas_id} (${changes.length} change(s) applied)` }],
+    };
+  }
+
+  if (req.params.name === "delete_canvas") {
+    const { canvas_id } = req.params.arguments as unknown as DeleteCanvasToolArgs;
+
+    await slackApp.client.canvases.delete({
+      token: SLACK_BOT_TOKEN,
+      canvas_id,
+    });
+
+    return {
+      content: [{ type: "text" as const, text: `Deleted canvas ${canvas_id}` }],
+    };
+  }
+
+  if (req.params.name === "lookup_canvas_sections") {
+    const { canvas_id, section_types, contains_text } = req.params.arguments as unknown as LookupCanvasSectionsToolArgs;
+
+    const criteria: Record<string, unknown> = {};
+    if (section_types) criteria.section_types = section_types;
+    if (contains_text) criteria.contains_text = contains_text;
+
+    const result = await slackApp.client.canvases.sections.lookup({
+      token: SLACK_BOT_TOKEN,
+      canvas_id,
+      criteria: criteria as any,
+    });
+
+    const sections = (result as any).sections ?? [];
+    const lines = sections.map((s: any) => `[${s.id}]`);
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: lines.length > 0
+          ? `Found ${sections.length} section(s):\n${lines.join("\n")}`
+          : "No sections found matching criteria.",
+      }],
+    };
+  }
+
+  if (req.params.name === "create_call") {
+    const { external_unique_id, join_url, title, date_start } = req.params.arguments as unknown as CreateCallToolArgs;
+
+    const result = await slackApp.client.calls.add({
+      token: SLACK_BOT_TOKEN,
+      external_unique_id,
+      join_url,
+      ...(title ? { title } : {}),
+      ...(date_start ? { date_start } : {}),
+    });
+
+    const callId = (result as any).call?.id;
+    return {
+      content: [{ type: "text" as const, text: `Created call${title ? ` "${title}"` : ""} (ID: ${callId})` }],
+    };
+  }
+
+  if (req.params.name === "end_call") {
+    const { id, duration } = req.params.arguments as unknown as EndCallToolArgs;
+
+    await slackApp.client.calls.end({
+      token: SLACK_BOT_TOKEN,
+      id,
+      ...(duration ? { duration } : {}),
+    });
+
+    return {
+      content: [{ type: "text" as const, text: `Ended call ${id}${duration ? ` (duration: ${duration}s)` : ""}` }],
+    };
+  }
+
+  if (req.params.name === "get_call_info") {
+    const { id } = req.params.arguments as unknown as GetCallInfoToolArgs;
+
+    const result = await slackApp.client.calls.info({
+      token: SLACK_BOT_TOKEN,
+      id,
+    });
+
+    const call = (result as any).call;
+    const info = call
+      ? `Call: ${call.title ?? "(no title)"}\nID: ${call.id}\nJoin URL: ${call.join_url}\nStatus: ${call.date_end ? "ended" : "active"}`
+      : "Call not found.";
+
+    return {
+      content: [{ type: "text" as const, text: info }],
     };
   }
 

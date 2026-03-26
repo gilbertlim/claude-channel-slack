@@ -57,3 +57,46 @@ export interface InviteToChannelToolArgs {
   channel: string;
   users: string;
 }
+
+// --- Canvas tool args ---
+export interface CreateCanvasToolArgs {
+  title?: string;
+  markdown?: string;
+  channel_id?: string;
+}
+
+export interface EditCanvasToolArgs {
+  canvas_id: string;
+  changes: Array<{
+    operation: "insert_at_start" | "insert_at_end" | "insert_before" | "insert_after" | "replace" | "delete";
+    section_id?: string;
+    document_content?: { type: "markdown"; markdown: string };
+  }>;
+}
+
+export interface DeleteCanvasToolArgs {
+  canvas_id: string;
+}
+
+export interface LookupCanvasSectionsToolArgs {
+  canvas_id: string;
+  section_types?: Array<"any_header" | "h1" | "h2" | "h3">;
+  contains_text?: string;
+}
+
+// --- Call tool args ---
+export interface CreateCallToolArgs {
+  external_unique_id: string;
+  join_url: string;
+  title?: string;
+  date_start?: number;
+}
+
+export interface EndCallToolArgs {
+  id: string;
+  duration?: number;
+}
+
+export interface GetCallInfoToolArgs {
+  id: string;
+}
