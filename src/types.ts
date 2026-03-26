@@ -51,3 +51,8 @@ export interface ListBotChannelsToolArgs {
 export interface ListChannelMembersToolArgs {
   channel: string;
 }
+
+export interface InviteToChannelToolArgs {
+  channel: string;
+  users: string;
+}

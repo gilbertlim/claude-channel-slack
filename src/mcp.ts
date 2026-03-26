@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -323,6 +323,25 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["channel"],
       },
     },
+    {
+      name: "invite_to_channel",
+      description: "Invite user(s) to a Slack channel.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel ID (e.g. C0123456789)",
+          },
+          users: {
+            type: "string",
+            description:
+              "Comma-separated Slack user IDs to invite (e.g. U0123456789,U9876543210)",
+          },
+        },
+        required: ["channel", "users"],
+      },
+    },
   ],
 }));
 
@@ -531,6 +550,25 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           text: members.length > 0
             ? `Channel has ${members.length} member(s):\n${members.join("\n")}`
             : "No members found.",
+        },
+      ],
+    };
+  }
+
+  if (req.params.name === "invite_to_channel") {
+    const { channel, users } = req.params.arguments as unknown as InviteToChannelToolArgs;
+
+    const result = await slackApp.client.conversations.invite({
+      token: SLACK_BOT_TOKEN,
+      channel,
+      users,
+    });
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Invited user(s) to channel ${result.channel?.name ?? channel}.`,
         },
       ],
     };

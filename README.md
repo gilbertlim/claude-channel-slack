@@ -28,6 +28,8 @@
 - `incoming-webhook` - 웹훅
 - `reactions:write` - 리액션 추가/제거
 - `users:read` - 사용자 정보 조회
+- `channels:write:invites` - public 채널에 사용자 초대
+- `groups:write:invites` - private 채널에 사용자 초대
 
 **Subscribe to Bot Events:**
 - `message.channels` - public 채널 메시지 수신
@@ -79,6 +81,7 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `get_thread_replies` | 특정 스레드의 답글 조회 (최대 100개) |
 | `list_bot_channels` | 봇이 참여 중인 채널 목록 조회 |
 | `list_channel_members` | 특정 채널의 멤버 목록 조회 (이름, 봇 여부 포함) |
+| `invite_to_channel` | 사용자를 특정 채널에 초대 |
 
 ## 기술 스택
 
