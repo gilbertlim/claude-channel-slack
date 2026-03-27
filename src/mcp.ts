@@ -447,7 +447,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "create_call",
-      description: "Register a call in Slack with a join URL that users can click to join.",
+      description: "Register a call in Slack and optionally post it to a channel/DM so users see a call card and can join.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -455,6 +455,8 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
           join_url: { type: "string", description: "URL to join the call" },
           title: { type: "string", description: "Display title for the call" },
           date_start: { type: "number", description: "Unix timestamp for call start time" },
+          channel: { type: "string", description: "Channel or DM ID to post the call card to. If omitted, the call is created but not posted." },
+          thread_ts: { type: "string", description: "Thread timestamp to post the call card in (optional, for threaded replies)" },
         },
         required: ["external_unique_id", "join_url"],
       },
@@ -860,7 +862,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (req.params.name === "create_call") {
-    const { external_unique_id, join_url, title, date_start } = req.params.arguments as unknown as CreateCallToolArgs;
+    const { external_unique_id, join_url, title, date_start, channel, thread_ts } = req.params.arguments as unknown as CreateCallToolArgs;
 
     const result = await slackApp.client.calls.add({
       token: SLACK_BOT_TOKEN,
@@ -871,8 +873,26 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     });
 
     const callId = (result as any).call?.id;
+    let message = `Created call${title ? ` "${title}"` : ""} (ID: ${callId})`;
+
+    if (channel && callId) {
+      await slackApp.client.chat.postMessage({
+        token: SLACK_BOT_TOKEN,
+        channel,
+        ...(thread_ts ? { thread_ts } : {}),
+        text: title ?? "Call",
+        blocks: [
+          {
+            type: "call",
+            call_id: callId,
+          } as any,
+        ],
+      });
+      message += ` and posted to ${channel}`;
+    }
+
     return {
-      content: [{ type: "text" as const, text: `Created call${title ? ` "${title}"` : ""} (ID: ${callId})` }],
+      content: [{ type: "text" as const, text: message }],
     };
   }
 

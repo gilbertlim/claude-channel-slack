@@ -98,6 +98,8 @@ export interface CreateCallToolArgs {
   join_url: string;
   title?: string;
   date_start?: number;
+  channel?: string;
+  thread_ts?: string;
 }
 
 export interface EndCallToolArgs {
