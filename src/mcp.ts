@@ -126,7 +126,7 @@ export const mcp = new Server(
       experimental: { "claude/channel": {} },
       tools: {},
     },
-    instructions: `Messages from Slack arrive as <channel source="claude-channel-slack" channel="..." channel_type="dm|channel" ts="..." thread_ts="..." user_id="..." username="...">.
+    instructions: `Messages from Slack arrive as <channel source="claude-channel-slack" channel="..." channel_type="dm|channel" ts="..." thread_ts="..." user_id="..." username="..." kst="YYYY-MM-DD HH:MM:SS">.
 
 When you receive a message:
 1. Analyze the content — it may be an alert, error report, question, or casual conversation

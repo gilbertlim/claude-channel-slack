@@ -98,6 +98,12 @@ slackApp.event("message", async ({ event, context }) => {
     }
   }
 
+  // Convert timestamp to KST (UTC+9)
+  const kst = new Date(parseFloat(event.ts) * 1000 + 9 * 3600 * 1000)
+    .toISOString()
+    .replace("T", " ")
+    .slice(0, 19);
+
   // Send as MCP channel notification
   console.error("[DEBUG] sending notification, text:", text.slice(0, 50));
   try {
@@ -112,6 +118,7 @@ slackApp.event("message", async ({ event, context }) => {
           thread_ts: threadTs,
           user_id: userId,
           username,
+          kst,
         },
       },
     });
