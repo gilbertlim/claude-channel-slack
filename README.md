@@ -8,7 +8,7 @@
 - Slack Socket Mode를 통해 지정된 채널의 메시지를 수신
 - MCP(Model Context Protocol) 서버로 동작하여 Claude Code에 메시지를 전달
 - Claude Code가 메시지를 분석하고 MCP 도구를 통해 Slack에 응답
-- 에러 알림(Grafana 웹훅 등) 수신 시 컨텍스트 기반 분석 수행
+- 웹훅 메시지 수신 시 컨텍스트 기반 분석 수행
 - Slack Canvas 생성/편집/삭제 및 섹션 조회
 - Slack Calls 등록/종료/정보 조회
 

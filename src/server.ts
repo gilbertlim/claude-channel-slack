@@ -25,7 +25,7 @@ slackApp.event("message", async ({ event, context }) => {
 
   let text = "text" in event ? (event.text ?? "") : "";
 
-  // Extract text from attachments (e.g. Grafana webhook messages)
+  // Extract text from attachments (e.g. webhook messages)
   if ("attachments" in event && Array.isArray(event.attachments)) {
     const attachmentTexts = event.attachments
       .map((a) => {
