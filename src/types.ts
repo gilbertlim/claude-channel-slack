@@ -26,6 +26,11 @@ export interface RemoveReactionToolArgs {
   name: string;
 }
 
+export interface DeleteMessageToolArgs {
+  channel: string;
+  timestamp: string;
+}
+
 export interface UploadFileToolArgs {
   channel: string;
   thread_ts: string;

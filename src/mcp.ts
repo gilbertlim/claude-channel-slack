@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, DeleteMessageToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -199,6 +199,25 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["channel", "timestamp", "name"],
+      },
+    },
+    {
+      name: "delete_message",
+      description:
+        "Delete a bot message from a Slack channel. Only messages posted by the bot can be deleted.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel ID (e.g. C0123456789)",
+          },
+          timestamp: {
+            type: "string",
+            description: "Message timestamp to delete",
+          },
+        },
+        required: ["channel", "timestamp"],
       },
     },
     {
@@ -520,6 +539,20 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     };
   }
 
+  if (req.params.name === "delete_message") {
+    const { channel, timestamp } = req.params.arguments as unknown as DeleteMessageToolArgs;
+
+    await slackApp.client.chat.delete({
+      token: SLACK_BOT_TOKEN,
+      channel,
+      ts: timestamp,
+    });
+
+    return {
+      content: [{ type: "text" as const, text: `Deleted message ${timestamp} from ${channel}` }],
+    };
+  }
+
   if (req.params.name === "upload_file") {
     const { channel, thread_ts, file_path, title, comment } = req.params.arguments as unknown as UploadFileToolArgs;
 
@@ -575,7 +608,10 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
             username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
           } catch {}
         }
-        return `[${username}] (${msg.ts}): ${extractMessageText(msg)}`;
+        const reactionsStr = (msg as any).reactions?.length
+          ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
+          : "";
+        return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
       })
     );
 
@@ -604,7 +640,10 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
             username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
           } catch {}
         }
-        return `[${username}] (${msg.ts}): ${extractMessageText(msg)}`;
+        const reactionsStr = (msg as any).reactions?.length
+          ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
+          : "";
+        return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
       })
     );
 
