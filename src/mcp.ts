@@ -293,6 +293,10 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "Unix timestamp (e.g. '1774000000'). Only messages after this timestamp will be returned.",
           },
+          cursor: {
+            type: "string",
+            description: "Pagination cursor from a previous response's next_cursor. Use to fetch the next page.",
+          },
         },
         required: ["channel"],
       },
@@ -594,7 +598,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (req.params.name === "get_channel_history") {
-    const { channel, limit, oldest } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
+    const { channel, limit, oldest, cursor } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
     const effectiveLimit = Math.min(limit ?? 20, 100);
 
     const result = await slackApp.client.conversations.history({
@@ -602,6 +606,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       channel,
       limit: effectiveLimit,
       ...(oldest && { oldest }),
+      ...(cursor && { cursor }),
     });
 
     const messages = await Promise.all(
@@ -620,8 +625,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       })
     );
 
+    const nextCursor = result.response_metadata?.next_cursor;
+    const output = messages.length > 0 ? messages.join("\n") : "No messages found.";
+    const cursorLine = nextCursor ? `\n---\nnext_cursor: ${nextCursor}` : "";
+
     return {
-      content: [{ type: "text" as const, text: messages.length > 0 ? messages.join("\n") : "No messages found." }],
+      content: [{ type: "text" as const, text: output + cursorLine }],
     };
   }
 

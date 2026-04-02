@@ -43,6 +43,7 @@ export interface GetChannelHistoryToolArgs {
   channel: string;
   limit?: number;
   oldest?: string;
+  cursor?: string;
 }
 
 export interface GetThreadRepliesToolArgs {
