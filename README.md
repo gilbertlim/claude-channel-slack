@@ -84,6 +84,7 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `reply` | Slack 메시지 답장 (채널: 스레드, DM: 톱레벨) |
 | `add_reaction` | 메시지에 이모지 리액션 추가 |
 | `remove_reaction` | 메시지에서 이모지 리액션 제거 |
+| `delete_message` | 봇이 보낸 메시지 삭제 |
 | `upload_file` | 로컬 파일을 Slack 스레드에 업로드 |
 | `get_channel_history` | 채널/DM의 최근 메시지 조회 (최대 100개) |
 | `get_thread_replies` | 특정 스레드의 답글 조회 (최대 100개) |
