@@ -86,7 +86,7 @@ claude --dangerously-load-development-channels server:claude-channel-slack
 | `remove_reaction` | 메시지에서 이모지 리액션 제거 |
 | `delete_message` | 봇이 보낸 메시지 삭제 |
 | `upload_file` | 로컬 파일을 Slack 스레드에 업로드 |
-| `get_channel_history` | 채널/DM의 최근 메시지 조회 (최대 100개, `oldest` 타임스탬프 필터 지원) |
+| `get_channel_history` | 채널/DM의 최근 메시지 조회 (최대 100개, `oldest` 타임스탬프 필터·커서 페이지네이션 지원) |
 | `get_thread_replies` | 특정 스레드의 답글 조회 (최대 100개) |
 | `list_bot_channels` | 봇이 참여 중인 채널 목록 조회 |
 | `list_channel_members` | 특정 채널의 멤버 목록 조회 (이름, 봇 여부 포함) |
