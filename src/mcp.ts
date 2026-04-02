@@ -625,9 +625,10 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       })
     );
 
-    const nextCursor = result.response_metadata?.next_cursor;
+    const nextCursor = result.response_metadata?.next_cursor || "";
+    const hasMore = result.has_more === true && nextCursor.length > 0;
     const output = messages.length > 0 ? messages.join("\n") : "No messages found.";
-    const cursorLine = nextCursor ? `\n---\nnext_cursor: ${nextCursor}` : "";
+    const cursorLine = hasMore ? `\n---\nnext_cursor: ${nextCursor}` : "";
 
     return {
       content: [{ type: "text" as const, text: output + cursorLine }],
