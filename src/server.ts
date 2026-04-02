@@ -10,6 +10,7 @@ let botUserId: string | undefined;
 const channelNameCache = new Map<string, string>();
 
 async function resolveChannelName(channelId: string): Promise<string> {
+  if (channelId.startsWith("D")) return "DM";
   const cached = channelNameCache.get(channelId);
   if (cached) return cached;
   try {
