@@ -289,6 +289,10 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "number",
             description: "Number of messages to retrieve (default: 20, max: 100)",
           },
+          oldest: {
+            type: "string",
+            description: "Unix timestamp (e.g. '1774000000'). Only messages after this timestamp will be returned.",
+          },
         },
         required: ["channel"],
       },
@@ -590,13 +594,14 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (req.params.name === "get_channel_history") {
-    const { channel, limit } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
+    const { channel, limit, oldest } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
     const effectiveLimit = Math.min(limit ?? 20, 100);
 
     const result = await slackApp.client.conversations.history({
       token: SLACK_BOT_TOKEN,
       channel,
       limit: effectiveLimit,
+      ...(oldest && { oldest }),
     });
 
     const messages = await Promise.all(

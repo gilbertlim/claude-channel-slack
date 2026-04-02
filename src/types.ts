@@ -42,6 +42,7 @@ export interface UploadFileToolArgs {
 export interface GetChannelHistoryToolArgs {
   channel: string;
   limit?: number;
+  oldest?: string;
 }
 
 export interface GetThreadRepliesToolArgs {
