@@ -7,6 +7,23 @@ import { slackApp } from "./slack.js";
 
 // --- Slack Event Handler ---
 let botUserId: string | undefined;
+const channelNameCache = new Map<string, string>();
+
+async function resolveChannelName(channelId: string): Promise<string> {
+  const cached = channelNameCache.get(channelId);
+  if (cached) return cached;
+  try {
+    const info = await slackApp.client.conversations.info({
+      token: SLACK_BOT_TOKEN,
+      channel: channelId,
+    });
+    const name = info.channel?.name ?? channelId;
+    channelNameCache.set(channelId, name);
+    return name;
+  } catch {
+    return channelId;
+  }
+}
 
 slackApp.event("message", async ({ event, context }) => {
   const channelType = "channel_type" in event ? (event.channel_type as string) : undefined;
@@ -104,13 +121,17 @@ slackApp.event("message", async ({ event, context }) => {
     .replace("T", " ")
     .slice(0, 19);
 
+  // Resolve channel name for display
+  const channelName = await resolveChannelName(event.channel);
+
   // Send as MCP channel notification
-  console.error("[DEBUG] sending notification, text:", text.slice(0, 50));
+  const displayContent = `[${channelName}] ${username}: ${text}`;
+  console.error("[DEBUG] sending notification, text:", displayContent.slice(0, 80));
   try {
     await mcp.notification({
       method: "notifications/claude/channel",
       params: {
-        content: text,
+        content: displayContent,
         meta: {
           channel: event.channel,
           channel_type: isDM ? "dm" : "channel",
