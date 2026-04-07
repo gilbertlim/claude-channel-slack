@@ -6,7 +6,7 @@ import {
 import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
-import { slackApp } from "./slack.js";
+import { slackApp, resolveDisplayName } from "./slack.js";
 import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, DeleteMessageToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
@@ -611,12 +611,11 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).reverse().map(async (msg) => {
-        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? (msg as any).bot_id ?? "unknown";
+        let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
         if (msg.user) {
-          try {
-            const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
-            username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
-          } catch {}
+          username = await resolveDisplayName(msg.user, "user");
+        } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
+          username = await resolveDisplayName((msg as any).bot_id, "bot");
         }
         const reactionsStr = (msg as any).reactions?.length
           ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
@@ -648,12 +647,11 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     const messages = await Promise.all(
       (result.messages ?? []).map(async (msg) => {
-        let username = msg.user ?? (msg as any).bot_profile?.name ?? (msg as any).username ?? (msg as any).bot_id ?? "unknown";
+        let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
         if (msg.user) {
-          try {
-            const userInfo = await slackApp.client.users.info({ token: SLACK_BOT_TOKEN, user: msg.user });
-            username = userInfo.user?.profile?.display_name || userInfo.user?.real_name || msg.user;
-          } catch {}
+          username = await resolveDisplayName(msg.user, "user");
+        } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
+          username = await resolveDisplayName((msg as any).bot_id, "bot");
         }
         const reactionsStr = (msg as any).reactions?.length
           ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`

@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { mcp } from "./mcp.js";
-import { slackApp } from "./slack.js";
+import { slackApp, resolveDisplayName } from "./slack.js";
 
 // --- Slack Event Handler ---
 let botUserId: string | undefined;
@@ -99,21 +99,18 @@ slackApp.event("message", async ({ event, context }) => {
   }
 
   const userId = "user" in event ? (event.user ?? "unknown") : "unknown";
+  const botId = "bot_id" in event ? (event as any).bot_id : undefined;
+  const botProfileName = "bot_profile" in event ? (event as any).bot_profile?.name : undefined;
   const threadTs = "thread_ts" in event ? (event.thread_ts as string) : event.ts;
 
-  // Resolve username
+  // Resolve username: user > bot_profile.name > bot_id > unknown
   let username = userId;
   if (userId !== "unknown") {
-    try {
-      const info = await slackApp.client.users.info({
-        token: SLACK_BOT_TOKEN,
-        user: userId,
-      });
-      username =
-        info.user?.profile?.display_name || info.user?.real_name || userId;
-    } catch {
-      // Fall back to user ID
-    }
+    username = await resolveDisplayName(userId, "user");
+  } else if (botProfileName) {
+    username = botProfileName;
+  } else if (botId) {
+    username = await resolveDisplayName(botId, "bot");
   }
 
   // Convert timestamp to KST (UTC+9)
@@ -126,7 +123,8 @@ slackApp.event("message", async ({ event, context }) => {
   const channelName = await resolveChannelName(event.channel);
 
   // Send as MCP channel notification
-  const displayContent = `[${channelName}] ${username}: ${text}`;
+  const kstTime = kst; // YYYY-MM-DD HH:MM:SS
+  const displayContent = `${kstTime} [${channelName}] ${username}: ${text}`;
   console.error("[DEBUG] sending notification, text:", displayContent.slice(0, 80));
   try {
     await mcp.notification({
@@ -138,7 +136,7 @@ slackApp.event("message", async ({ event, context }) => {
           channel_type: isDM ? "dm" : "channel",
           ts: event.ts,
           thread_ts: threadTs,
-          user_id: userId,
+          user_id: userId !== "unknown" ? userId : (botId ?? "unknown"),
           username,
           kst,
         },
