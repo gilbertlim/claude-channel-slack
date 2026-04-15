@@ -6,7 +6,7 @@ import {
 import { readFileSync } from "fs";
 import { basename } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
-import { slackApp, resolveDisplayName } from "./slack.js";
+import { slackApp, resolveDisplayName, withSlackLimit, batchResolveDisplayNames, getDisplayName } from "./slack.js";
 import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, DeleteMessageToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
 
 // --- Helpers ---
@@ -601,28 +601,31 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { channel, limit, oldest, cursor } = req.params.arguments as unknown as GetChannelHistoryToolArgs;
     const effectiveLimit = Math.min(limit ?? 20, 100);
 
-    const result = await slackApp.client.conversations.history({
-      token: SLACK_BOT_TOKEN,
-      channel,
-      limit: effectiveLimit,
-      ...(oldest && { oldest }),
-      ...(cursor && { cursor }),
-    });
-
-    const messages = await Promise.all(
-      (result.messages ?? []).reverse().map(async (msg) => {
-        let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
-        if (msg.user) {
-          username = await resolveDisplayName(msg.user, "user");
-        } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
-          username = await resolveDisplayName((msg as any).bot_id, "bot");
-        }
-        const reactionsStr = (msg as any).reactions?.length
-          ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
-          : "";
-        return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
+    const result = await withSlackLimit(() =>
+      slackApp.client.conversations.history({
+        token: SLACK_BOT_TOKEN,
+        channel,
+        limit: effectiveLimit,
+        ...(oldest && { oldest }),
+        ...(cursor && { cursor }),
       })
     );
+
+    const reversed = (result.messages ?? []).reverse();
+    await batchResolveDisplayNames(reversed);
+
+    const messages = reversed.map((msg) => {
+      let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
+      if (msg.user) {
+        username = getDisplayName(msg.user);
+      } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
+        username = getDisplayName((msg as any).bot_id);
+      }
+      const reactionsStr = (msg as any).reactions?.length
+        ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
+        : "";
+      return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
+    });
 
     const nextCursor = result.response_metadata?.next_cursor || "";
     const hasMore = result.has_more === true && nextCursor.length > 0;
@@ -638,27 +641,30 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { channel, thread_ts, limit } = req.params.arguments as unknown as GetThreadRepliesToolArgs;
     const effectiveLimit = Math.min(limit ?? 20, 100);
 
-    const result = await slackApp.client.conversations.replies({
-      token: SLACK_BOT_TOKEN,
-      channel,
-      ts: thread_ts,
-      limit: effectiveLimit,
-    });
-
-    const messages = await Promise.all(
-      (result.messages ?? []).map(async (msg) => {
-        let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
-        if (msg.user) {
-          username = await resolveDisplayName(msg.user, "user");
-        } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
-          username = await resolveDisplayName((msg as any).bot_id, "bot");
-        }
-        const reactionsStr = (msg as any).reactions?.length
-          ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
-          : "";
-        return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
+    const result = await withSlackLimit(() =>
+      slackApp.client.conversations.replies({
+        token: SLACK_BOT_TOKEN,
+        channel,
+        ts: thread_ts,
+        limit: effectiveLimit,
       })
     );
+
+    const allMsgs = result.messages ?? [];
+    await batchResolveDisplayNames(allMsgs);
+
+    const messages = allMsgs.map((msg) => {
+      let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
+      if (msg.user) {
+        username = getDisplayName(msg.user);
+      } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
+        username = getDisplayName((msg as any).bot_id);
+      }
+      const reactionsStr = (msg as any).reactions?.length
+        ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
+        : "";
+      return `[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`;
+    });
 
     return {
       content: [{ type: "text" as const, text: messages.length > 0 ? messages.join("\n") : "No replies found." }],
