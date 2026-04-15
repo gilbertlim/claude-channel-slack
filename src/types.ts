@@ -46,6 +46,12 @@ export interface GetChannelHistoryToolArgs {
   cursor?: string;
 }
 
+export interface DumpChannelHistoryToolArgs {
+  channel: string;
+  oldest: string;
+  output_path: string;
+}
+
 export interface GetThreadRepliesToolArgs {
   channel: string;
   thread_ts: string;

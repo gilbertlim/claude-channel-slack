@@ -3,11 +3,11 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync } from "fs";
-import { basename } from "path";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { basename, dirname } from "path";
 import { SLACK_BOT_TOKEN } from "./config.js";
 import { slackApp, resolveDisplayName, withSlackLimit, batchResolveDisplayNames, getDisplayName } from "./slack.js";
-import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, DeleteMessageToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs } from "./types.js";
+import type { ReplyToolArgs, AddReactionToolArgs, RemoveReactionToolArgs, DeleteMessageToolArgs, UploadFileToolArgs, GetChannelHistoryToolArgs, GetThreadRepliesToolArgs, ListBotChannelsToolArgs, ListChannelMembersToolArgs, InviteToChannelToolArgs, CreateCanvasToolArgs, EditCanvasToolArgs, DeleteCanvasToolArgs, LookupCanvasSectionsToolArgs, ListChannelCanvasesToolArgs, ReadCanvasToolArgs, CreateCallToolArgs, EndCallToolArgs, GetCallInfoToolArgs, DumpChannelHistoryToolArgs } from "./types.js";
 
 // --- Helpers ---
 function extractMessageText(msg: any): string {
@@ -511,6 +511,29 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["id"],
       },
     },
+    {
+      name: "dump_channel_history",
+      description:
+        "Fetch all messages from a channel since a given timestamp and save raw text to a file. Handles pagination automatically. Returns message count only.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          channel: {
+            type: "string",
+            description: "Slack channel ID",
+          },
+          oldest: {
+            type: "string",
+            description: "Unix timestamp. Only messages after this will be fetched.",
+          },
+          output_path: {
+            type: "string",
+            description: "Absolute file path to write the raw message text to.",
+          },
+        },
+        required: ["channel", "oldest", "output_path"],
+      },
+    },
   ],
 }));
 
@@ -983,6 +1006,64 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     return {
       content: [{ type: "text" as const, text: info }],
+    };
+  }
+
+  if (req.params.name === "dump_channel_history") {
+    const { channel, oldest, output_path } = req.params.arguments as unknown as DumpChannelHistoryToolArgs;
+
+    mkdirSync(dirname(output_path), { recursive: true });
+
+    const allLines: string[] = [];
+    let cursor: string | undefined;
+    let totalMessages = 0;
+
+    do {
+      const result = await withSlackLimit(() =>
+        slackApp.client.conversations.history({
+          token: SLACK_BOT_TOKEN,
+          channel,
+          limit: 100,
+          oldest,
+          ...(cursor ? { cursor } : {}),
+        })
+      );
+
+      const messages = result.messages ?? [];
+      totalMessages += messages.length;
+
+      // Collect unique user/bot IDs and batch resolve
+      await batchResolveDisplayNames(messages);
+
+      // Format messages oldest-first
+      for (const msg of [...messages].reverse()) {
+        let username = (msg as any).bot_profile?.name ?? (msg as any).username ?? "unknown";
+        if (msg.user) {
+          username = getDisplayName(msg.user);
+        } else if (!(msg as any).bot_profile?.name && (msg as any).bot_id) {
+          username = getDisplayName((msg as any).bot_id);
+        }
+        const reactionsStr = (msg as any).reactions?.length
+          ? ` [reactions: ${(msg as any).reactions.map((r: any) => `:${r.name}:`).join(", ")}]`
+          : "";
+        allLines.push(`[${username}] (${msg.ts})${reactionsStr}: ${extractMessageText(msg)}`);
+      }
+
+      const nextCursor = result.response_metadata?.next_cursor || "";
+      cursor = result.has_more === true && nextCursor.length > 0 ? nextCursor : undefined;
+    } while (cursor);
+
+    // Sort by timestamp (oldest first)
+    allLines.sort((a, b) => {
+      const tsA = a.match(/\((\d+\.\d+)\)/)?.[1] ?? "0";
+      const tsB = b.match(/\((\d+\.\d+)\)/)?.[1] ?? "0";
+      return parseFloat(tsA) - parseFloat(tsB);
+    });
+
+    writeFileSync(output_path, allLines.join("\n"), "utf-8");
+
+    return {
+      content: [{ type: "text" as const, text: `Saved ${totalMessages} messages to ${output_path}` }],
     };
   }
 
